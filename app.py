@@ -11,7 +11,7 @@ def home():
 @app.route("/student")
 def get_student():
     student = {
-        "name": "BNK",
+        "name": "BNJ",
         "grade": 10,
         "section": "ARDUINO"
     }
