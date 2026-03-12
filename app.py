@@ -11,9 +11,9 @@ def home():
 @app.route("/student")
 def get_student():
     student = {
-        "name": "Your Name",
+        "name": "BNK",
         "grade": 10,
-        "section": "Zechariah"
+        "section": "ARDUINO"
     }
     return jsonify(student)
 
