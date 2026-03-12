@@ -1,14 +1,22 @@
 from flask import Flask, jsonify, request
+
 app = Flask(__name__)
 
-@app.route('/')
+# Home route
+@app.route("/")
 def home():
-  return "Welcome to my Flask API!"
+    return "Welcome to my Flask API!"
 
-@app.route('/student')
+# Student route
+@app.route("/student")
 def get_student():
-  return jsonify({
-    "name": "Your Name",
-    "grade": 10,
-    "section": "Zechariah"
-  })
+    student = {
+        "name": "Your Name",
+        "grade": 10,
+        "section": "Zechariah"
+    }
+    return jsonify(student)
+
+# Run locally
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
