@@ -1,15 +1,32 @@
 from flask import Flask, jsonify, request, render_template_string, redirect, url_for
+import sqlite3
 
 app = Flask(__name__)
+DB_FILE = "registry.db"
 
-# 1. IN-MEMORY DATASET (No external DB required for this lab) 
-students = [
-    {"id": 1, "name": "Shine", "grade": 92, "section": "ARDUINO"},
-    {"id": 2, "name": "Mae", "grade": 74, "section": "ZECHARIAH"},
-    {"id": 3, "name": "Ben", "grade": 85, "section": "STALLMAN"}
-]
+# 1. DATABASE INITIALIZATION
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            grade INTEGER NOT NULL,
+            section TEXT NOT NULL
+        )
+    ''')
+    # Add initial data only if table is empty
+    cursor.execute("SELECT COUNT(*) FROM students")
+    if cursor.fetchone()[0] == 0:
+        sample_data = [('Shine', 92, 'ARDUINO'), ('Mae', 74, 'ZECHARIAH'), ('Ben', 85, 'STALLMAN')]
+        cursor.executemany("INSERT INTO students (name, grade, section) VALUES (?, ?, ?)", sample_data)
+    conn.commit()
+    conn.close()
 
-# --- HTML TEMPLATE (Cyber-Terminal Design) ---
+init_db()
+
+# --- HTML TEMPLATE ---
 BASE_HTML = """
 <!DOCTYPE html>
 <html>
@@ -18,13 +35,15 @@ BASE_HTML = """
     <style>
         body { background: #020406; color: #4cc9f0; font-family: 'Courier New', monospace; padding: 20px; }
         .container { max-width: 800px; margin: auto; border: 1px solid #4cc9f0; padding: 20px; box-shadow: 0 0 15px rgba(76, 201, 240, 0.2); }
-        h1 { border-bottom: 1px solid #4cc9f0; padding-bottom: 10px; letter-spacing: 3px; }
-        .student-card { border: 1px solid #222; padding: 10px; margin: 10px 0; background: rgba(255,255,255,0.05); }
+        h1 { border-bottom: 1px solid #4cc9f0; padding-bottom: 10px; letter-spacing: 3px; text-align:center; }
+        .search-box { margin-bottom: 20px; display: flex; gap: 10px; }
+        .student-card { border: 1px solid #222; padding: 15px; margin: 10px 0; background: rgba(255,255,255,0.05); border-left: 5px solid #4cc9f0; }
         .pass { color: #00ff41; } .fail { color: #ff4d4d; }
-        input, button { background: #000; color: #4cc9f0; border: 1px solid #4cc9f0; padding: 8px; margin: 5px 0; }
+        input, button { background: #000; color: #4cc9f0; border: 1px solid #4cc9f0; padding: 10px; font-family: inherit; }
         button { cursor: pointer; font-weight: bold; }
         button:hover { background: #4cc9f0; color: #000; }
-        a { color: #ffd700; text-decoration: none; font-size: 0.8rem; }
+        .nav-links { margin-bottom: 15px; font-size: 0.9rem; }
+        a { color: #ffd700; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -37,89 +56,114 @@ BASE_HTML = """
 
 # --- ROUTES ---
 
-# 2. HOME: LIST ALL STUDENTS (READ) 
 @app.route('/')
 def home():
+    search_query = request.args.get('search', '')
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 2. FUNCTIONAL SEARCH LOGIC
+    if search_query:
+        cursor.execute("SELECT * FROM students WHERE name LIKE ?", ('%' + search_query + '%',))
+    else:
+        cursor.execute("SELECT * FROM students")
+    
+    rows = cursor.fetchall()
+    conn.close()
+
     html = """
     {% extends "base" %}
     {% block content %}
-    <h1>>> STELLAR_REGISTRY</h1>
-    <a href="/add_form">[+] ADD_NEW_RECORD</a> | <a href="/summary">[?] VIEW_ANALYTICS</a>
+    <h1>>> SYSTEM_REGISTRY_V2</h1>
+    <div class="nav-links">
+        <a href="/add_form">[+] NEW_RECORD</a> | <a href="/summary">[?] ANALYTICS</a>
+    </div>
+
+    <form class="search-box" action="/" method="GET">
+        <input type="text" name="search" placeholder="SEARCH_BY_NAME..." value="{{ search_val }}" style="flex-grow: 1;">
+        <button type="submit">QUERY</button>
+        {% if search_val %}<a href="/" style="align-self:center;">[CLEAR]</a>{% endif %}
+    </form>
+
     <hr>
     {% for s in students %}
     <div class="student-card">
-        <strong>ID: {{ s.id }} | {{ s.name }}</strong><br>
-        SECTION: {{ s.section }} | GRADE: {{ s.grade }} 
-        <span class="{{ 'pass' if s.grade >= 75 else 'fail' }}">
-            ({{ 'PASSED' if s.grade >= 75 else 'FAILED' }})
+        <strong>NAME: {{ s['name'] }}</strong><br>
+        SECTION: {{ s['section'] }} | GRADE: {{ s['grade'] }} 
+        <span class="{{ 'pass' if s['grade'] >= 75 else 'fail' }}">
+            ({{ 'PASSED' if s['grade'] >= 75 else 'FAILED' }})
         </span>
-        <br>
-        <a href="/edit/{{ s.id }}">[EDIT]</a> | <a href="/delete/{{ s.id }}" style="color:red;">[DELETE]</a>
+        <div style="margin-top:10px; font-size:0.8rem;">
+             <a href="/delete/{{ s['id'] }}" style="color:#ff4d4d;">[DELETE_ENTRY]</a>
+        </div>
     </div>
+    {% else %}
+    <p style="text-align:center; color: #888;">NO_RECORDS_FOUND_IN_SECTOR</p>
     {% endfor %}
     {% endblock %}
     """
-    return render_template_string(BASE_HTML + html, students=students)
+    return render_template_string(BASE_HTML + html, students=rows, search_val=search_query)
 
-# 3. ADD STUDENT FORM (CREATE) 
 @app.route('/add_form')
 def add_form():
     html = """
     {% extends "base" %}
     {% block content %}
-    <h1>>> NEW_ENTRY_INITIALIZATION</h1>
+    <h1>>> INITIALIZE_NEW_DATA</h1>
     <form action="/add" method="POST">
-        NAME: <input type="text" name="name" required><br>
-        GRADE: <input type="number" name="grade" min="0" max="100" required><br>
-        SECTION: <input type="text" name="section" required><br>
-        <button type="submit">COMMIT_TO_REGISTRY</button>
+        NAME: <input type="text" name="name" required style="width:100%;"><br><br>
+        GRADE: <input type="number" name="grade" min="0" max="100" required style="width:100%;"><br><br>
+        SECTION: <input type="text" name="section" required style="width:100%;"><br><br>
+        <button type="submit" style="width:100%;">COMMIT_TO_DATABASE</button>
     </form>
-    <a href="/">[BACK_TO_TERMINAL]</a>
+    <br><a href="/">[RETURN_TO_MAIN_TERMINAL]</a>
     {% endblock %}
     """
     return render_template_string(BASE_HTML + html)
 
 @app.route('/add', methods=['POST'])
 def add_student():
-    new_id = max([s['id'] for s in students]) + 1 if students else 1
-    new_student = {
-        "id": new_id,
-        "name": request.form.get("name"),
-        "grade": int(request.form.get("grade")),
-        "section": request.form.get("section")
-    }
-    students.append(new_student)
+    name = request.form.get("name")
+    grade = int(request.form.get("grade"))
+    section = request.form.get("section")
+    
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO students (name, grade, section) VALUES (?, ?, ?)", (name, grade, section))
+    conn.commit()
+    conn.close()
     return redirect(url_for('home'))
 
-# 4. DELETE STUDENT (DELETE) 
 @app.route('/delete/<int:id>')
 def delete_student(id):
-    global students
-    students = [s for s in students if s['id'] != id]
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM students WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
     return redirect(url_for('home'))
 
-# 5. ANALYTICS (JSON API FEATURE) 
 @app.route('/summary')
 def summary():
-    if not students:
-        return jsonify({"error": "NO_DATA_AVAILABLE"}), 200
-    
-    grades = [s['grade'] for s in students]
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT grade FROM students")
+    grades = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    if not grades:
+        return jsonify({"status": "EMPTY_DATABASE"})
+
     avg = sum(grades) / len(grades)
     passed = len([g for g in grades if g >= 75])
     
     return jsonify({
-        "class_average": round(avg, 2),
-        "total_students": len(students),
-        "pass_count": passed,
-        "fail_count": len(students) - passed,
-        "system_status": "STABLE"
+        "average": round(avg, 2),
+        "total": len(grades),
+        "passed": passed,
+        "failed": len(grades) - passed
     })
-
-# 6. JSON ENDPOINT (For original requirement) 
-@app.route('/api/students')
-def api_students():
-    return jsonify(students)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
