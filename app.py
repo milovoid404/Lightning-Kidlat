@@ -47,18 +47,34 @@ BASE_HTML = """
         a {{ color: #ffd700; text-decoration: none; }}
         a:hover {{ text-decoration: underline; }}
         
-        /* Analytics Features */
+        /* Analytics Style */
         .stat-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }}
         .stat-card {{ border: 1px solid #4cc9f0; padding: 20px; text-align: center; background: rgba(0,0,0,0.5); }}
+        .stat-card.clickable {{ cursor: pointer; transition: 0.3s; }}
+        .stat-card.clickable:hover {{ border-color: #ffd700; background: rgba(255, 215, 0, 0.1); }}
         .stat-value {{ font-size: 2.5rem; display: block; margin: 10px 0; }}
         .progress-bar-bg {{ background: #111; border: 1px solid #4cc9f0; height: 25px; width: 100%; margin: 20px 0; position: relative; }}
         .progress-bar-fill {{ background: #4cc9f0; height: 100%; transition: width 1s ease-in-out; box-shadow: 0 0 10px #4cc9f0; }}
+        
+        .hidden-list {{ display: none; margin-top: 20px; border-top: 1px dashed #4cc9f0; padding-top: 20px; }}
+        .list-item {{ padding: 5px 0; border-bottom: 1px solid #111; font-size: 0.9rem; }}
     </style>
 </head>
 <body>
     <div class="container">
         {content}
     </div>
+    <script>
+        function toggleEntries() {{
+            var list = document.getElementById("entriesList");
+            if (list.style.display === "none" || list.style.display === "") {{
+                list.style.display = "block";
+                list.scrollIntoView({{ behavior: 'smooth' }});
+            }} else {{
+                list.style.display = "none";
+            }}
+        }}
+    </script>
 </body>
 </html>
 """
@@ -114,15 +130,17 @@ def home():
 @app.route('/summary')
 def summary():
     conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT grade FROM students")
-    grades = [row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT * FROM students")
+    all_students = cursor.fetchall()
     conn.close()
 
-    if not grades:
-        content = "<h1>>> ANALYTICS_OFFLINE</h1><p style='text-align:center;'>NO DATA AVAILABLE FOR ANALYSIS.</p><br><a href='/'>[RETURN]</a>"
+    if not all_students:
+        content = "<h1>>> ANALYTICS_OFFLINE</h1><p style='text-align:center;'>NO DATA AVAILABLE.</p><br><a href='/'>[RETURN]</a>"
         return render_template_string(BASE_HTML.format(content=content))
 
+    grades = [s['grade'] for s in all_students]
     total = len(grades)
     avg = sum(grades) / total
     passed = len([g for g in grades if g >= 75])
@@ -137,10 +155,12 @@ def summary():
             <small>CLASS_AVERAGE</small>
             <span class="stat-value" style="color:#ffd700;">{round(avg, 2)}%</span>
         </div>
-        <div class="stat-card">
-            <small>TOTAL_ENTRIES</small>
+        
+        <div class="stat-card clickable" onclick="toggleEntries()">
+            <small>TOTAL_ENTRIES (CLICK TO VIEW)</small>
             <span class="stat-value">{total}</span>
         </div>
+        
         <div class="stat-card">
             <small>SUCCESS_COUNT</small>
             <span class="stat-value pass">{passed}</span>
@@ -149,6 +169,16 @@ def summary():
             <small>FAILURE_COUNT</small>
             <span class="stat-value fail">{failed}</span>
         </div>
+    </div>
+
+    <div id="entriesList" class="hidden-list">
+        <h3>>> FULL_REGISTRY_LOG</h3>
+        <table style="width: 100%; border-collapse: collapse; color: #4cc9f0; font-size: 0.8rem;">
+            <tr style="border-bottom: 1px solid #4cc9f0; text-align: left;">
+                <th>NAME</th><th>SECTION</th><th>GRADE</th><th>STATUS</th>
+            </tr>
+            {" ".join([f'<tr class="list-item"><td>{s["name"]}</td><td>{s["section"]}</td><td>{s["grade"]}</td><td class="{"pass" if s["grade"] >= 75 else "fail"}">{"PASS" if s["grade"] >= 75 else "FAIL"}</td></tr>' for s in all_students])}
+        </table>
     </div>
 
     <div style="margin-top: 30px;">
@@ -164,7 +194,7 @@ def summary():
     """
     return render_template_string(BASE_HTML.format(content=content))
 
-# --- OTHER ROUTES (ADD/EDIT/DELETE) ---
+# --- OTHER ROUTES (ADD/EDIT/DELETE/UPDATE) ---
 
 @app.route('/add_form')
 def add_form():
@@ -182,14 +212,10 @@ def add_form():
 
 @app.route('/edit/<int:id>')
 def edit_form(id):
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    conn = sqlite3.connect(DB_FILE); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
     cursor.execute("SELECT * FROM students WHERE id = ?", (id,))
-    student = cursor.fetchone()
-    conn.close()
+    student = cursor.fetchone(); conn.close()
     if not student: return "Record not found", 404
-
     content = f"""
     <h1>>> MODIFY_DATA_SECTOR_{id}</h1>
     <form action="/update" method="POST">
