@@ -26,7 +26,6 @@ def init_db():
 init_db()
 
 # --- HTML MASTER LAYOUT ---
-# Using {content} as a placeholder for our sub-pages
 BASE_HTML = """
 <!DOCTYPE html>
 <html>
@@ -44,6 +43,8 @@ BASE_HTML = """
         button:hover {{ background: #4cc9f0; color: #000; }}
         .nav-links {{ margin-bottom: 15px; font-size: 0.9rem; }}
         a {{ color: #ffd700; text-decoration: none; }}
+        .btn-edit {{ color: #4cc9f0; margin-right: 15px; }}
+        .btn-delete {{ color: #ff4d4d; }}
     </style>
 </head>
 <body>
@@ -92,14 +93,14 @@ def home():
             ({{ 'PASSED' if s['grade'] >= 75 else 'FAILED' }})
         </span>
         <div style="margin-top:10px; font-size:0.8rem;">
-             <a href="/delete/{{ s['id'] }}" style="color:#ff4d4d;">[DELETE_ENTRY]</a>
+             <a href="/edit/{{ s['id'] }}" class="btn-edit">[EDIT_ENTRY]</a>
+             <a href="/delete/{{ s['id'] }}" class="btn-delete" onclick="return confirm('Confirm deletion?')">[DELETE_ENTRY]</a>
         </div>
     </div>
     {% else %}
     <p style="text-align:center; color: #888;">NO_RECORDS_FOUND_IN_SECTOR</p>
     {% endfor %}
     """
-    # Injecting sub-content into the BASE_HTML then rendering Jinja variables
     return render_template_string(BASE_HTML.format(content=content), students=rows, search_val=search_query)
 
 @app.route('/add_form')
@@ -115,6 +116,48 @@ def add_form():
     <br><a href="/">[RETURN_TO_MAIN_TERMINAL]</a>
     """
     return render_template_string(BASE_HTML.format(content=content))
+
+@app.route('/edit/<int:id>')
+def edit_form(id):
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM students WHERE id = ?", (id,))
+    student = cursor.fetchone()
+    conn.close()
+
+    if not student:
+        return "Record not found", 404
+
+    content = f"""
+    <h1>>> MODIFY_DATA_SECTOR_{id}</h1>
+    <form action="/update" method="POST">
+        <input type="hidden" name="id" value="{student['id']}">
+        NAME: <input type="text" name="name" value="{student['name']}" required style="width:100%;"><br><br>
+        GRADE: <input type="number" name="grade" value="{student['grade']}" min="0" max="100" required style="width:100%;"><br><br>
+        SECTION: <input type="text" name="section" value="{student['section']}" required style="width:100%;"><br><br>
+        <button type="submit" style="width:100%;">UPDATE_DATABASE_RECORD</button>
+    </form>
+    <br><a href="/">[CANCEL_CHANGES]</a>
+    """
+    return render_template_string(BASE_HTML.format(content=content))
+
+@app.route('/update', methods=['POST'])
+def update_student():
+    try:
+        sid = request.form.get("id")
+        name = request.form.get("name")
+        grade = int(request.form.get("grade", 0))
+        section = request.form.get("section")
+        
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE students SET name=?, grade=?, section=? WHERE id=?", (name, grade, section, sid))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('home'))
+    except Exception as e:
+        return f"UPDATE_ERROR: {str(e)}", 500
 
 @app.route('/add', methods=['POST'])
 def add_student():
@@ -163,4 +206,4 @@ def summary():
     })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True) # Enabled debug mode to help you see errors
+    app.run(host="0.0.0.0", port=5000, debug=True)
