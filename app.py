@@ -4,7 +4,7 @@ import sqlite3
 app = Flask(__name__)
 DB_FILE = "registry_v3.db"
 
-# 1. DATABASE INITIALIZATION (Updated for 3 Subjects)
+# 1. DATABASE INITIALIZATION
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -57,6 +57,7 @@ BASE_HTML = """
         table {{ width: 100%; border-collapse: collapse; font-size: 0.8rem; }}
         th, td {{ padding: 8px; border: 1px solid #1a1a1a; text-align: left; }}
         .subject-tag {{ font-size: 0.7rem; color: #888; display: block; }}
+        .search-container {{ margin: 20px 0; display: flex; gap: 10px; justify-content: center; }}
     </style>
 </head>
 <body>
@@ -65,6 +66,22 @@ BASE_HTML = """
         function toggleEntries() {{
             var list = document.getElementById("entriesList");
             list.style.display = (list.style.display === "none" || list.style.display === "") ? "block" : "none";
+        }}
+        
+        function filterTable() {{
+            var input = document.getElementById("searchInput");
+            var filter = input.value.toUpperCase();
+            var table = document.getElementById("studentTable");
+            var tr = table.getElementsByTagName("tr");
+            document.getElementById("entriesList").style.display = "block";
+
+            for (var i = 1; i < tr.length; i++) {{
+                var td = tr[i].getElementsByTagName("td")[0];
+                if (td) {{
+                    var txtValue = td.textContent || td.innerText;
+                    tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+                }}
+            }}
         }}
     </script>
 </body>
@@ -84,6 +101,7 @@ def home():
 
 @app.route('/summary')
 def summary():
+    search_q = request.args.get('search', '')
     conn = sqlite3.connect(DB_FILE); conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM students")
@@ -105,7 +123,7 @@ def summary():
         
         table_rows += f"""
         <tr>
-            <td>{s['name']}<br><small>{s['section']}</small></td>
+            <td><strong>{s['name']}</strong><br><small>{s['section']}</small></td>
             <td><span class="subject-tag">{s['sub1_name']}</span> {s['sub1_grade']}</td>
             <td><span class="subject-tag">{s['sub2_name']}</span> {s['sub2_grade']}</td>
             <td><span class="subject-tag">{s['sub3_name']}</span> {s['sub3_grade']}</td>
@@ -118,16 +136,31 @@ def summary():
 
     class_avg = sum(all_avg) / len(all_avg)
     
+    # Check if we should auto-show the list based on search
+    list_display = "block" if search_q else "none"
+
     content = f"""
     <h1>>> ANALYTICS_V3</h1>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="SEARCH_BY_NAME..." value="{search_q}" style="flex-grow: 1;">
+        <button onclick="filterTable()">QUERY_SYSTEM</button>
+        <a href="/summary" style="border:1px solid #4cc9f0; padding:10px;">RESET</a>
+    </div>
+
     <div class="stat-grid">
         <div class="stat-card"><small>CLASS_AVG</small><span class="stat-value" style="color:#ffd700;">{round(class_avg, 2)}</span></div>
-        <div class="stat-card" style="cursor:pointer;" onclick="toggleEntries()"><small>TOTAL_STUDENTS</small><span class="stat-value">{len(rows)}</span></div>
+        <div class="stat-card" style="cursor:pointer; border: 2px solid #ffd700;" onclick="toggleEntries()">
+            <small>TOTAL_STUDENTS</small>
+            <span class="stat-value">{len(rows)}</span>
+            <small>(CLICK TO VIEW)</small>
+        </div>
         <div class="stat-card"><small>PASSED</small><span class="stat-value pass">{passed_count}</span></div>
         <div class="stat-card"><small>FAILED</small><span class="stat-value fail">{len(rows)-passed_count}</span></div>
     </div>
-    <div id="entriesList" class="hidden-list">
-        <table>
+
+    <div id="entriesList" class="hidden-list" style="display:{list_display};">
+        <table id="studentTable">
             <tr><th>STUDENT</th><th>SUB_1</th><th>SUB_2</th><th>SUB_3</th><th>GEN_AVG</th><th>ACT</th></tr>
             {table_rows}
         </table>
@@ -181,7 +214,7 @@ def edit_form(id):
     <h1>>> MODIFY_RECORD_{id}</h1>
     <form action="/update" method="POST">
         <input type="hidden" name="id" value="{s['id']}">
-        NAME: <input type="text" name="name" value="{s['name']}" required><br>
+        NAME: <input type="text" name="name" value="{s['name']}" required style="width:100%;"><br><br>
         <div style="display:flex; gap:10px;">
             <input type="text" name="s1n" value="{s['sub1_name']}"> <input type="number" name="s1g" value="{s['sub1_grade']}">
         </div>
@@ -191,8 +224,9 @@ def edit_form(id):
         <div style="display:flex; gap:10px;">
             <input type="text" name="s3n" value="{s['sub3_name']}"> <input type="number" name="s3g" value="{s['sub3_grade']}">
         </div>
-        <button type="submit">UPDATE_SYSTEM</button>
-    </form>"""
+        <br><button type="submit" style="width:100%;">UPDATE_SYSTEM</button>
+    </form>
+    <br><a href="/summary">CANCEL</a>"""
     return render_template_string(BASE_HTML.format(content=content))
 
 @app.route('/update', methods=['POST'])
