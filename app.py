@@ -4,7 +4,6 @@ import sqlite3
 app = Flask(__name__)
 DB_FILE = "registry_v3.db"
 
-# 1. DATABASE INITIALIZATION
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -38,50 +37,91 @@ BASE_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MAE_LOU_TERMINAL_V3</title>
+    <title>ML_CORE_TERMINAL</title>
     <style>
-        body {{ background: #020406; color: #4cc9f0; font-family: 'Courier New', monospace; padding: 20px; }}
-        .container {{ max-width: 900px; margin: auto; border: 1px solid #4cc9f0; padding: 20px; box-shadow: 0 0 15px rgba(76, 201, 240, 0.2); }}
-        h1 {{ border-bottom: 1px solid #4cc9f0; padding-bottom: 10px; letter-spacing: 3px; text-align:center; text-transform: uppercase; }}
-        input, button {{ background: #000; color: #4cc9f0; border: 1px solid #4cc9f0; padding: 10px; font-family: inherit; margin: 5px 0; }}
-        button {{ cursor: pointer; font-weight: bold; text-transform: uppercase; }}
-        button:hover {{ background: #4cc9f0; color: #000; box-shadow: 0 0 10px #4cc9f0; }}
-        .nav-links {{ margin: 30px 0; text-align: center; display: flex; justify-content: space-around; }}
-        a {{ color: #ffd700; text-decoration: none; border: 1px solid #ffd700; padding: 10px; }}
-        a:hover {{ background: #ffd700; color: #000; }}
-        .stat-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }}
-        .stat-card {{ border: 1px solid #4cc9f0; padding: 15px; text-align: center; background: rgba(0,0,0,0.5); }}
-        .stat-value {{ font-size: 1.8rem; display: block; margin: 5px 0; }}
-        .pass {{ color: #00ff41; }} .fail {{ color: #ff4d4d; }}
-        .hidden-list {{ display: none; margin-top: 20px; border-top: 1px dashed #4cc9f0; padding-top: 20px; }}
-        table {{ width: 100%; border-collapse: collapse; font-size: 0.8rem; }}
-        th, td {{ padding: 8px; border: 1px solid #1a1a1a; text-align: left; }}
-        .subject-tag {{ font-size: 0.7rem; color: #888; display: block; }}
-        .search-container {{ margin: 20px 0; display: flex; gap: 10px; justify-content: center; }}
+        :root {{
+            --bg: #05070a;
+            --panel: #0d1117;
+            --accent: #4cc9f0;
+            --gold: #f9c74f;
+            --pass: #00f5d4;
+            --fail: #f94144;
+            --text: #e0e6ed;
+        }}
+        body {{ background: var(--bg); color: var(--text); font-family: 'Segoe UI', 'Courier New', monospace; padding: 40px 20px; margin: 0; }}
+        .container {{ 
+            max-width: 900px; margin: auto; border: 1px solid rgba(76, 201, 240, 0.3); 
+            padding: 30px; background: var(--panel); border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(76, 201, 240, 0.1); 
+        }}
+        .logo-area {{ text-align: center; margin-bottom: 20px; }}
+        h1 {{ 
+            color: var(--accent); letter-spacing: 5px; text-align:center; 
+            text-transform: uppercase; font-size: 1.5rem; margin-top: 10px;
+            text-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+        }}
+        input, button {{ 
+            background: #161b22; color: var(--text); border: 1px solid #30363d; 
+            padding: 12px; border-radius: 6px; font-family: inherit; transition: 0.3s;
+        }}
+        input:focus {{ outline: none; border-color: var(--accent); box-shadow: 0 0 8px rgba(76, 201, 240, 0.4); }}
+        button {{ 
+            background: var(--accent); color: var(--bg); border: none; cursor: pointer; 
+            font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+        }}
+        button:hover {{ filter: brightness(1.2); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(76, 201, 240, 0.3); }}
+        .nav-links {{ margin: 30px 0; display: flex; gap: 15px; justify-content: center; }}
+        .nav-links a {{ 
+            color: var(--gold); text-decoration: none; border: 1px solid var(--gold); 
+            padding: 12px 20px; border-radius: 6px; font-size: 0.9rem; transition: 0.3s;
+        }}
+        .nav-links a:hover {{ background: var(--gold); color: var(--bg); font-weight: bold; }}
+        
+        .stat-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 25px; }}
+        .stat-card {{ 
+            background: rgba(255,255,255,0.03); border: 1px solid #30363d; 
+            padding: 20px; text-align: center; border-radius: 8px; transition: 0.3s;
+        }}
+        .stat-card:hover {{ border-color: var(--accent); background: rgba(76, 201, 240, 0.05); }}
+        .stat-value {{ font-size: 2rem; font-weight: 800; display: block; margin-top: 5px; }}
+        .pass {{ color: var(--pass); }} .fail {{ color: var(--fail); }}
+        
+        table {{ width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-top: 20px; }}
+        th {{ padding: 15px; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; text-align: left; }}
+        td {{ padding: 15px; background: rgba(255,255,255,0.02); border-top: 1px solid #30363d; border-bottom: 1px solid #30363d; }}
+        td:first-child {{ border-left: 1px solid #30363d; border-radius: 8px 0 0 8px; }}
+        td:last-child {{ border-right: 1px solid #30363d; border-radius: 0 8px 8px 0; }}
+        
+        .subject-tag {{ font-size: 0.65rem; color: #8b949e; text-transform: uppercase; font-weight: bold; }}
+        .btn-sm {{ padding: 5px 10px; border-radius: 4px; font-size: 0.7rem; text-decoration: none; margin-left: 5px; }}
     </style>
 </head>
 <body>
-    <div class="container">{content}</div>
+    <div class="container">
+        <div class="logo-area">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#4cc9f0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+                <line x1="12" y1="2" x2="12" y2="22"></line>
+            </svg>
+            <h1>ML_CORE_v3</h1>
+        </div>
+        {content}
+    </div>
     <script>
         function toggleEntries() {{
             var list = document.getElementById("entriesList");
             list.style.display = (list.style.display === "none" || list.style.display === "") ? "block" : "none";
         }}
-        
         function filterTable() {{
             var input = document.getElementById("searchInput");
             var filter = input.value.toUpperCase();
-            var table = document.getElementById("studentTable");
-            var tr = table.getElementsByTagName("tr");
+            var tr = document.querySelectorAll("#studentTable tr:not(:first-child)");
             document.getElementById("entriesList").style.display = "block";
-
-            for (var i = 1; i < tr.length; i++) {{
-                var td = tr[i].getElementsByTagName("td")[0];
-                if (td) {{
-                    var txtValue = td.textContent || td.innerText;
-                    tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
-                }}
-            }}
+            tr.forEach(row => {{
+                var name = row.cells[0].innerText.toUpperCase();
+                row.style.display = name.includes(filter) ? "" : "none";
+            }});
         }}
     </script>
 </body>
@@ -91,25 +131,23 @@ BASE_HTML = """
 @app.route('/')
 def home():
     content = """
-    <h1>>> MULTI_SUBJECT_TERMINAL</h1>
-    <div class="nav-links">
-        <a href="/add_form">[+] NEW_STUDENT_RECORD</a>
-        <a href="/summary">[?] ANALYTICS_DASHBOARD</a>
+    <div style="text-align:center; padding: 40px 0;">
+        <p style="color: #8b949e;">CONNECTED TO DATABASE: REGISTRY_V3.DB</p>
+        <div class="nav-links">
+            <a href="/add_form">INITIALIZE_ENTRY</a>
+            <a href="/summary">ACCESS_ANALYTICS</a>
+        </div>
     </div>
     """
     return render_template_string(BASE_HTML.format(content=content))
 
 @app.route('/summary')
 def summary():
-    search_q = request.args.get('search', '')
     conn = sqlite3.connect(DB_FILE); conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM students")
-    rows = cursor.fetchall()
-    conn.close()
+    rows = conn.execute("SELECT * FROM students").fetchall(); conn.close()
 
     if not rows:
-        return render_template_string(BASE_HTML.format(content="<h1>NO DATA</h1><a href='/'>BACK</a>"))
+        return render_template_string(BASE_HTML.format(content="<h3 style='text-align:center'>NO ACTIVE RECORDS</h3><div class='nav-links'><a href='/'>BACK</a></div>"))
 
     all_avg = []
     passed_count = 0
@@ -118,81 +156,78 @@ def summary():
     for s in rows:
         avg = (s['sub1_grade'] + s['sub2_grade'] + s['sub3_grade']) / 3
         all_avg.append(avg)
-        status = "pass" if avg >= 75 else "fail"
+        status_class = "pass" if avg >= 75 else "fail"
         if avg >= 75: passed_count += 1
         
         table_rows += f"""
         <tr>
-            <td><strong>{s['name']}</strong><br><small>{s['section']}</small></td>
-            <td><span class="subject-tag">{s['sub1_name']}</span> {s['sub1_grade']}</td>
-            <td><span class="subject-tag">{s['sub2_name']}</span> {s['sub2_grade']}</td>
-            <td><span class="subject-tag">{s['sub3_name']}</span> {s['sub3_grade']}</td>
-            <td class="{status}"><strong>{round(avg, 2)}</strong></td>
+            <td><strong style="color:white">{s['name']}</strong><br><span style="color:#58a6ff; font-size:0.75rem">{s['section']}</span></td>
+            <td><span class="subject-tag">{s['sub1_name']}</span><br>{s['sub1_grade']}</td>
+            <td><span class="subject-tag">{s['sub2_name']}</span><br>{s['sub2_grade']}</td>
+            <td><span class="subject-tag">{s['sub3_name']}</span><br>{s['sub3_grade']}</td>
+            <td class="{status_class}"><strong>{round(avg, 2)}%</strong></td>
             <td>
-                <a href="/edit/{s['id']}" style="border:none; color:#ffd700;">[E]</a>
-                <a href="/delete/{s['id']}" style="border:none; color:#ff4d4d;">[X]</a>
+                <a href="/edit/{s['id']}" class="btn-sm" style="border: 1px solid var(--gold); color: var(--gold);">EDIT</a>
+                <a href="/delete/{s['id']}" class="btn-sm" style="border: 1px solid var(--fail); color: var(--fail);">DEL</a>
             </td>
         </tr>"""
 
     class_avg = sum(all_avg) / len(all_avg)
     
-    # Check if we should auto-show the list based on search
-    list_display = "block" if search_q else "none"
-
     content = f"""
-    <h1>>> ANALYTICS_V3</h1>
-    
-    <div class="search-container">
-        <input type="text" id="searchInput" placeholder="SEARCH_BY_NAME..." value="{search_q}" style="flex-grow: 1;">
-        <button onclick="filterTable()">QUERY_SYSTEM</button>
-        <a href="/summary" style="border:1px solid #4cc9f0; padding:10px;">RESET</a>
+    <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+        <input type="text" id="searchInput" placeholder="SEARCH STUDENT IDENTITY..." style="flex-grow: 1;">
+        <button onclick="filterTable()">QUERY</button>
     </div>
 
     <div class="stat-grid">
-        <div class="stat-card"><small>CLASS_AVG</small><span class="stat-value" style="color:#ffd700;">{round(class_avg, 2)}</span></div>
-        <div class="stat-card" style="cursor:pointer; border: 2px solid #ffd700;" onclick="toggleEntries()">
-            <small>TOTAL_STUDENTS</small>
-            <span class="stat-value">{len(rows)}</span>
-            <small>(CLICK TO VIEW)</small>
-        </div>
-        <div class="stat-card"><small>PASSED</small><span class="stat-value pass">{passed_count}</span></div>
-        <div class="stat-card"><small>FAILED</small><span class="stat-value fail">{len(rows)-passed_count}</span></div>
+        <div class="stat-card"><small>SYSTEM_AVG</small><span class="stat-value" style="color:var(--gold);">{round(class_avg, 2)}%</span></div>
+        <div class="stat-card" style="cursor:pointer; border-color: var(--accent);" onclick="toggleEntries()"><small>RECORDS</small><span class="stat-value">{len(rows)}</span></div>
+        <div class="stat-card"><small>STATUS_PASS</small><span class="stat-value pass">{passed_count}</span></div>
+        <div class="stat-card"><small>STATUS_FAIL</small><span class="stat-value fail">{len(rows)-passed_count}</span></div>
     </div>
 
-    <div id="entriesList" class="hidden-list" style="display:{list_display};">
+    <div id="entriesList">
         <table id="studentTable">
-            <tr><th>STUDENT</th><th>SUB_1</th><th>SUB_2</th><th>SUB_3</th><th>GEN_AVG</th><th>ACT</th></tr>
+            <tr><th>NAME / UNIT</th><th>SUB_1</th><th>SUB_2</th><th>SUB_3</th><th>TOTAL_AVG</th><th>ACTIONS</th></tr>
             {table_rows}
         </table>
     </div>
-    <br><div style="text-align:center;"><a href="/">RETURN_TO_BASE</a></div>
+    <div class="nav-links"><a href="/">TERMINATE_SESSION</a></div>
     """
     return render_template_string(BASE_HTML.format(content=content))
 
 @app.route('/add_form')
 def add_form():
     content = """
-    <h1>>> INITIALIZE_3_SUBJECT_DATA</h1>
-    <form action="/add" method="POST" style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+    <h2 style="text-align:center; color: var(--accent);">INITIALIZE_RECORD</h2>
+    <form action="/add" method="POST" style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         <div style="grid-column: span 2;">
-            NAME: <input type="text" name="name" required style="width:90%;">
-            SECTION: <input type="text" name="section" required style="width:90%;">
+            <label class="subject-tag">IDENTIFICATION NAME</label><br>
+            <input type="text" name="name" required style="width:97%;">
+        </div>
+        <div style="grid-column: span 2;">
+            <label class="subject-tag">ASSIGNED SECTION</label><br>
+            <input type="text" name="section" required style="width:97%;">
         </div>
         <div>
-            SUBJ 1: <input type="text" name="s1n" placeholder="Name" required><br>
-            GRADE: <input type="number" name="s1g" min="0" max="100" required>
+            <label class="subject-tag">SUBJECT 01</label><br>
+            <input type="text" name="s1n" placeholder="Name" required style="width:80%;">
+            <input type="number" name="s1g" placeholder="Grade" min="0" max="100" required style="width:80%;">
         </div>
         <div>
-            SUBJ 2: <input type="text" name="s2n" placeholder="Name" required><br>
-            GRADE: <input type="number" name="s2g" min="0" max="100" required>
+            <label class="subject-tag">SUBJECT 02</label><br>
+            <input type="text" name="s2n" placeholder="Name" required style="width:80%;">
+            <input type="number" name="s2g" placeholder="Grade" min="0" max="100" required style="width:80%;">
         </div>
-        <div>
-            SUBJ 3: <input type="text" name="s3n" placeholder="Name" required><br>
-            GRADE: <input type="number" name="s3g" min="0" max="100" required>
+        <div style="grid-column: span 2;">
+            <label class="subject-tag">SUBJECT 03</label><br>
+            <input type="text" name="s3n" placeholder="Name" required style="width:39%;">
+            <input type="number" name="s3g" placeholder="Grade" min="0" max="100" required style="width:39%;">
         </div>
-        <button type="submit" style="grid-column: span 2;">COMMIT_TO_SYSTEM</button>
+        <button type="submit" style="grid-column: span 2; padding: 15px;">COMMIT_TO_DATABASE</button>
     </form>
-    <br><a href="/">CANCEL</a>
+    <div class="nav-links"><a href="/" style="border-color: var(--fail); color: var(--fail);">ABORT</a></div>
     """
     return render_template_string(BASE_HTML.format(content=content))
 
@@ -208,25 +243,22 @@ def add_student():
 
 @app.route('/edit/<int:id>')
 def edit_form(id):
-    conn = sqlite3.connect(DB_FILE); conn.row_factory = sqlite3.Row; cursor = conn.cursor()
-    s = cursor.execute("SELECT * FROM students WHERE id = ?", (id,)).fetchone(); conn.close()
+    conn = sqlite3.connect(DB_FILE); conn.row_factory = sqlite3.Row
+    s = conn.execute("SELECT * FROM students WHERE id = ?", (id,)).fetchone(); conn.close()
     content = f"""
-    <h1>>> MODIFY_RECORD_{id}</h1>
+    <h2 style="text-align:center; color: var(--gold);">MODIFY_RECORD_ID_{id}</h2>
     <form action="/update" method="POST">
         <input type="hidden" name="id" value="{s['id']}">
-        NAME: <input type="text" name="name" value="{s['name']}" required style="width:100%;"><br><br>
-        <div style="display:flex; gap:10px;">
-            <input type="text" name="s1n" value="{s['sub1_name']}"> <input type="number" name="s1g" value="{s['sub1_grade']}">
+        <label class="subject-tag">NAME</label><br>
+        <input type="text" name="name" value="{s['name']}" required style="width:97%; margin-bottom:15px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <div><input type="text" name="s1n" value="{s['sub1_name']}"><input type="number" name="s1g" value="{s['sub1_grade']}"></div>
+            <div><input type="text" name="s2n" value="{s['sub2_name']}"><input type="number" name="s2g" value="{s['sub2_grade']}"></div>
+            <div><input type="text" name="s3n" value="{s['sub3_name']}"><input type="number" name="s3g" value="{s['sub3_grade']}"></div>
         </div>
-        <div style="display:flex; gap:10px;">
-            <input type="text" name="s2n" value="{s['sub2_name']}"> <input type="number" name="s2g" value="{s['sub2_grade']}">
-        </div>
-        <div style="display:flex; gap:10px;">
-            <input type="text" name="s3n" value="{s['sub3_name']}"> <input type="number" name="s3g" value="{s['sub3_grade']}">
-        </div>
-        <br><button type="submit" style="width:100%;">UPDATE_SYSTEM</button>
+        <button type="submit" style="width:100%; margin-top:20px;">UPDATE_CORE_DATA</button>
     </form>
-    <br><a href="/summary">CANCEL</a>"""
+    <div class="nav-links"><a href="/summary">BACK</a></div>"""
     return render_template_string(BASE_HTML.format(content=content))
 
 @app.route('/update', methods=['POST'])
